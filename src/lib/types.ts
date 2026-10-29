@@ -48,9 +48,22 @@ export type ObservationQuery = {
 export type ArchiveErrorKind = 'timeout' | 'upstream' | 'parse' | 'bad-request'
 
 export type Provenance = {
-  source: 'IRSA SIA2 (live)' | 'IRSA SIA2 (cached fixture)'
+  source: 'IRSA SIA2 (live)' | 'IRSA SIA2 (cached fixture)' | 'IRSA SIA2 (local index)'
   queryUrl: string
   retrievedAt: string
+}
+
+/** How a region query relates to the synced archive index (only for watched regions). */
+export type SyncInfo = {
+  regionName: string
+  /** When the index was last refreshed for this region */
+  syncedAt: string
+  /** Products that first appeared in the archive at the latest sync */
+  newSinceLastSync: string[]
+  /** Products in this live response that the index has not seen yet */
+  notInIndex: string[]
+  /** Set when the live archive failed and these items come from the index */
+  fallbackReason?: string
 }
 
 export type ObservationsResult =
@@ -61,11 +74,13 @@ export type ObservationsResult =
       truncated: boolean
       query: ObservationQuery
       provenance: Provenance
+      sync?: SyncInfo
     }
   | {
       status: 'no-results'
       query: ObservationQuery
       provenance: Provenance
+      sync?: SyncInfo
     }
   | {
       status: 'error'
@@ -82,6 +97,8 @@ export type Survey = {
   description: string
   attribution: string
   url: string
+  /** HiPS tile service Aladin loads directly (a CORS-enabled mirror, so the map does not depend on one host). */
+  hipsUrl: string
 }
 
 // ---------- point analysis (derived from SPHEREx pixels by this app) ----------
@@ -133,4 +150,45 @@ export const releaseOf = (url: string) => /\/spherex\/(qr\d+)\//i.exec(url)?.[1]
 /** Releases analysed together with the selected one: same kind (all-sky or deep), all versions. */
 export function releaseFamily(c: Collection): Collection[] {
   return COLLECTIONS.filter((x) => x.endsWith('_deep') === c.endsWith('_deep'))
+}
+
+// ---------- archive index (written by scripts/sync.ts, bundled at build time) ----------
+
+export type IndexedObservation = Observation & {
+  /** First sync that saw this product */
+  firstSeenAt: string
+  /** Set when a later sync no longer found it in the archive; kept, never silently dropped */
+  missingSince?: string
+}
+
+export type IndexedRegion = {
+  name: string
+  ra: number
+  dec: number
+  radius: number
+  collection: Collection
+  status: 'ok' | 'stale'
+  /** Last successful archive query for this region */
+  syncedAt: string | null
+  /** Error of the latest attempt when status is 'stale' */
+  error?: string
+  /** True when the archive capped the response at MAXREC */
+  truncated: boolean
+  queryUrl: string
+  newSinceLastSync: string[]
+  items: IndexedObservation[]
+}
+
+export type ArchiveIndex = {
+  version: 1
+  /** Last run in which every region synced */
+  lastSuccessfulSync: string | null
+  lastAttempt: string | null
+  regions: Record<string, IndexedRegion>
+}
+
+export type SyncStatus = {
+  lastSuccessfulSync: string | null
+  lastAttempt: string | null
+  regions: { key: string; name: string; collection: Collection; status: 'ok' | 'stale'; syncedAt: string | null; error?: string; count: number; newCount: number }[]
 }

@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { SkyAtlas, type SkyAtlasHandle } from '../components/SkyAtlas'
-import { RegionPanel, type Preset } from '../components/RegionPanel'
+import { RegionPanel } from '../components/RegionPanel'
+import type { Preset } from '../lib/presets'
 import { ObservationList } from '../components/ObservationList'
 import { ObservationDetails } from '../components/ObservationDetails'
 import { LearnPanel } from '../components/LearnPanel'
@@ -190,7 +191,7 @@ function Explorer() {
         <section className="center" id="atlas">
           <SkyAtlas
             ref={atlasRef}
-            surveyId={surveyId}
+            hipsUrl={survey.hipsUrl}
             target={target}
             footprints={footprints}
             selectedDid={selected?.did ?? null}

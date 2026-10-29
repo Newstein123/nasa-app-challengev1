@@ -7,7 +7,8 @@ export type SkyAtlasHandle = {
 }
 
 type Props = {
-  surveyId: string
+  /** HiPS service URL of the background survey */
+  hipsUrl: string
   target: { ra: number; dec: number; radius: number } | null
   footprints: { did: string; points: [number, number][]; center: [number, number] | null; fovDeg: number | null }[]
   selectedDid: string | null
@@ -59,7 +60,7 @@ function outlineAt(aladin: any, drawn: Props['footprints'], x: number, y: number
 
 // Aladin Lite is browser-only (WebGL + WASM), so it is imported lazily on mount.
 export const SkyAtlas = forwardRef<SkyAtlasHandle, Props>(function SkyAtlas(
-  { surveyId, target, footprints, selectedDid, showAllFootprints, onPick, onSelectFootprint },
+  { hipsUrl, target, footprints, selectedDid, showAllFootprints, onPick, onSelectFootprint },
   ref,
 ) {
   const divRef = useRef<HTMLDivElement>(null)
@@ -82,7 +83,7 @@ export const SkyAtlas = forwardRef<SkyAtlasHandle, Props>(function SkyAtlas(
         await A.init
         if (cancelled || !divRef.current) return
         const aladin = A.aladin(divRef.current, {
-          survey: surveyId,
+          survey: hipsUrl,
           fov: 1.5,
           target: target ? `${target.ra} ${target.dec}` : '83.8221 -5.3911',
           cooFrame: 'ICRS',
@@ -134,9 +135,9 @@ export const SkyAtlas = forwardRef<SkyAtlasHandle, Props>(function SkyAtlas(
   useEffect(() => {
     const aladin = aladinRef.current
     if (!ready || !aladin) return
-    if (typeof aladin.setBaseImageLayer === 'function') aladin.setBaseImageLayer(surveyId)
-    else aladin.setImageSurvey(surveyId)
-  }, [ready, surveyId])
+    if (typeof aladin.setBaseImageLayer === 'function') aladin.setBaseImageLayer(hipsUrl)
+    else aladin.setImageSurvey(hipsUrl)
+  }, [ready, hipsUrl])
 
   useEffect(() => {
     const A = libRef.current
@@ -188,15 +189,15 @@ export const SkyAtlas = forwardRef<SkyAtlasHandle, Props>(function SkyAtlas(
   useImperativeHandle(
     ref,
     () => ({
-      gotoObject: (name) =>
-        new Promise((resolve, reject) => {
-          const aladin = aladinRef.current
-          if (!aladin) return reject(new Error('Sky atlas is still loading'))
-          aladin.gotoObject(name, {
-            success: ([ra, dec]: [number, number]) => resolve({ ra: normRa(ra), dec }),
-            error: () => reject(new Error(`Could not resolve “${name}” with CDS Sesame`)),
-          })
-        }),
+      // Resolved by our server, which falls back to a Sesame mirror when CDS is down.
+      gotoObject: async (name) => {
+        const res = await fetch(`/api/resolve?${new URLSearchParams({ name })}`)
+        const body = await res.json()
+        if (body.status !== 'ok') throw new Error(body.message ?? `Could not resolve “${name}”`)
+        const pos = { ra: normRa(body.ra), dec: body.dec }
+        aladinRef.current?.gotoRaDec(pos.ra, pos.dec)
+        return pos
+      },
       gotoRaDec: (ra, dec) => aladinRef.current?.gotoRaDec(ra, dec),
     }),
     [],

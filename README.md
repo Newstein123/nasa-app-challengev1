@@ -46,6 +46,7 @@ CTM_OFFLINE=1 npm run dev    # fallback: region search serves the cached Orion r
 | `GET /api/observations?ra=&dec=&radius=[&collection=]` | SPHEREx products intersecting a circle (degrees, radius ≤ 0.5) |
 | `GET /api/observations/:id` | One product by URL-encoded publisher DID |
 | `GET /api/surveys` | Background survey layers and attribution |
+| `GET /api/resolve?name=` | Object name → position via CDS Sesame, with the CfA mirror as fallback |
 | `POST /api/measure` `{ra, dec, urls[≤6]}` | Quick-look brightness and wavelength at a point, per image |
 | `GET /api/visit?url=&ra=&dec=[&n=72&scale=6.15]` | One image resampled onto a north-up grid around the point |
 
